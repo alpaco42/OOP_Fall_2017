@@ -15,7 +15,6 @@ class vector:
 
     def __init__(self, entries, orientation = "c"):
         if isinstance(entries, list):
-
             self.elements = []
             for entry in entries:
                 self.elements.append(entry)
