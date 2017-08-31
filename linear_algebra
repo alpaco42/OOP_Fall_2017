@@ -1,0 +1,586 @@
+from __future__ import division
+import copy
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+
+planeExists = False
+spaceExists = False
+
+class vector:
+    """The input for this class should be a list. You also have the option to"""
+    """Choose whether your vector is a column vector (by adding "c") or row"""
+    """vector (by adding "r"). Default is column vector"""
+
+    def __init__(self, entries, orientation = "c"):
+        if isinstance(entries, list):
+
+            self.elements = []
+            for entry in entries:
+                self.elements.append(entry)
+        elif isinstance(entries, vector):
+            self.elements = entries.elements
+            orientation = entries.orientation
+        self.dimensionality = len(entries)
+        self.orientation = orientation
+
+    def __str__(self):
+        buff = "("
+        for e in range(len(self.elements)):
+            buff += str(np.real_if_close(round(self.elements[e], 3), 5))
+            if e < len(self.elements) - 1:
+                buff += ", "
+        buff += ")"
+        return buff
+
+    def __div__(self, scalar):
+        product = []
+        for i in self.elements:
+            product.append(i / scalar)
+        return vector(product, self.orientation)
+
+    def __setitem__(self, index, item):
+        self.elements[index] = item
+
+    def __getitem__(self,index):
+        return self.elements[index]
+
+    def __add__(self, otherVector):
+        if len(self.elements) != len(otherVector.elements):
+            raise RuntimeError("Cannot add these vectors")
+        sumt = []
+        for entry in range(len(self)):
+            sumt.append(self.elements[entry] + otherVector.elements[entry])
+        return vector(sumt)
+
+    def __sub__(self, otherVector):
+        if len(self.elements) != len(otherVector.elements):
+            raise RuntimeError("Cannot add these vectors")
+        sumt = []
+        for entry in range(len(self)):
+            sumt.append(self.elements[entry] - otherVector.elements[entry])
+        return vector(sumt)
+
+    def __len__(self):
+        return len(self.elements)
+
+    def __mul__(self, otherVorM):
+        if len(self.elements) != len(otherVorM.elements):
+            raise RuntimeError("Cannot multiply: incompatible dimensions")
+        try:
+            """both vectors"""
+            if self.orientation == otherVorM.orientation:
+                product = []
+                for i in range(len(self.elements)):
+                    product.append(self.elements[i] * otherVorM[i])
+                return vector(product)
+            elif self.orientation == "r":
+                return vector.dpro(self, otherVorM)
+            else:
+                product = []
+                for i in range(len(self.elements)):
+                    product.append(vector.smul(otherVorM, self.elements[i]))
+                return matrix(product)
+        except:
+            """other is matrix"""
+            if self.orientation == "c":
+                raise RuntimeError("Cannot multiply: incompatible dimensions")
+            else:
+                product = []
+                for i in range(len(otherVorM.elements)):
+                    product.append(self.elements[i] * vector.taxi(otherVorM.elements[i]))
+                return vector(product, orientation = "r")
+
+    def __eq__(self, otherVector):
+        try:
+            for i in range(len(self)):
+                if self.elements[i] != otherVector.elements[i]:
+                    return False
+        except:
+            return False
+        return True
+
+    def taxi(self):
+        """returns the 'taxi distance' of self"""
+        taxiSize = 0
+        for entry in self.elements:
+            taxiSize += entry
+        return taxiSize
+
+    def dpro(self, otherVector):
+        """returns the dot product of input vectors"""
+        if self.dimensionality != otherVector.dimensionality:
+            raise RuntimeError("Cannot multiply vectors of different dimensions")
+        else:
+            product = 0
+            for e in range(len(self.elements)):
+                product += self.elements[e] * otherVector.elements[e]
+            return product
+
+    def size(self):
+        return vector.dpro(self, self)**(1/2)
+
+    def eqsize(self, otherVector):
+        return vector.size(self) == vector.size(otherVector)
+
+    def smul(self, scalar):
+        product = copy.deepcopy(self)
+        for i in range(len(product.elements)):
+            product.elements[i] = product.elements[i] * scalar
+        return product
+
+
+    def cross(vectorA,vectorB):
+        """returns cross product of input vectors"""
+        if len(vectorA.elements) != 3:
+            raise RuntimeError("Vectors must be 3-dimensional to take cross product")
+
+        if len(vectorB.elements) != 3:
+            raise RuntimeError("Vectors must be 3-dimensional to take cross product")
+
+        product = [0,0,0]
+        for i in range(len(product)):
+
+            tempx = []
+            for j in range(len(vectorA)):
+                if j == i:
+                    continue
+                else: tempx.append(vectorA.elements[j])
+            tempy = []
+            for j in range(len(vectorB)):
+                if j == i:
+                    continue
+                else:
+                    tempy.append(vectorB.elements[j])
+            product[i] = matrix.determinant(matrix([tempx,tempy]))
+        product[1] = -product[1]
+        return vector(product)
+
+    def transpose(self):
+        if self.orientation == "c":
+            return vector(self.elements, orientation = "r")
+        else:
+            return vector(self.elements, orientation = "c")
+
+    def matricize(self):
+        if self.orientation == "r":
+            return matrix([self])
+        else:
+            m = []
+            for entry in self.elements:
+                m.append([entry])
+            return matrix(m)
+    def exponentiate(self, power):
+        result = copy.deepcopy(self)
+        for i in range(len(result.elements)):
+            result.elements[i] = result.elements[i]**power
+        return result
+
+    def mean(self):
+        mean = 0
+        for a in self.elements:
+            mean += a / len(self.elements)
+        return mean
+
+class matrix:
+
+    """the input for this class should be a list of lists. Each sub-list is a row"""
+    def __init__(self, entries):
+        for i in entries:
+            if len(entries[0]) != len(i):
+                raise RuntimeError("All rows of matrix must contain the same number of entries")
+        self.elements = []
+        for row in entries:
+            self.elements.append(vector(row, "r"))
+    def __str__(self):
+        buff = "("
+
+        for row in range(len(self.elements)):
+            buff += str(self.elements[row])
+            if row < len(self.elements) - 1:
+                buff += ", "
+
+
+        buff += ")"
+        return buff
+
+    def __setitem__(self, index, item):
+        self.elements[index] = item
+
+    def __getitem__(self, column):
+        c = []
+        for entry in self.elements:
+            c.append(entry[column])
+        return vector(c)
+
+
+    def __add__(self, otherMatrix):
+        if len(self.elements) != len(otherMatrix.elements):
+            raise RuntimeError("Cannot add matrices of different sizes")
+        if len(self.elements[0]) != len(otherMatrix.elements[0]):
+            raise RuntimeError("Cannot add matrices of different sizes")
+
+        sumt = []
+        row = []
+        for entry in self.elements[0]:
+            row.append(0)
+        for i in self.elements:
+            sumt.append(row)
+        sumf = matrix(sumt)
+        for i in range(len(self.elements)):
+            for j in range(len(self.elements[0])):
+                sumf.elements[i][j] = self.elements[i][j] + otherMatrix.elements[i][j]
+        return sumf
+
+    def __mul__(self, otherMOrV):
+            if len(self.elements[0]) != len(otherMOrV.elements):
+                raise RuntimeError("Cannot multiply: incompatible dimensions")
+            try:
+                """other is matrix"""
+                productt = []
+                row = []
+                for entry in otherMOrV.elements[0]:
+                    row.append(0)
+                for i in self.elements:
+                    productt.append(row)
+                productf = matrix(productt)
+                for i in range(len(productf.elements)):
+                    for j in range(len(productf.elements[0])):
+                        column = []
+                        for entry in otherMOrV.elements:
+                            column.append(entry[j])
+                        productf.elements[i][j] = self.elements[i] * vector(column)
+                return productf
+
+            except:
+                """other is vector"""
+                return self * vector.matricize(otherMOrV)
+
+
+
+    def transpose(self):
+        transposeSelf = []
+        for column in range(len(self.elements[0])):
+            c = []
+            for row in range(len(self.elements)):
+                c.append(self.elements[row][column])
+            transposeSelf.append(c)
+        return matrix(transposeSelf)
+
+    def determinant(self):
+        """calculates the determinant of a square matrix"""
+        if len(self.elements) != len(self.elements[0].elements):
+            raise RuntimeError("Matrix must be square to take determinant")
+        elif len(self.elements) == 1:
+            return self.elements[0].elements[0]
+        else:
+            det = 0
+            for row in self.elements:
+                temp = copy.deepcopy(self)
+                temp.elements.remove(row)
+                for rRow in temp.elements:
+                    del rRow.elements[0]
+                det += (-1) ** self.elements.index(row) * row.elements[0] * matrix.determinant(temp)
+            return det
+
+    def invert(self):
+        """returns the inverse of an invertible matrix"""
+        if matrix.determinant(self) == 0:
+            raise RuntimeError ("Matrix is singular")
+        steps = []
+        canvast = []
+        row = []
+        for entry in self.elements[0]:
+            row.append(0)
+        for i in self.elements:
+            canvast.append(copy.deepcopy(row))
+        for i in range(len(row)):
+            canvast[i][i] = 1
+        canvasf = matrix(canvast)
+        for i in range(len(self.elements)):
+            if self.elements[i][i] == 0:
+                for j in range(len(self.elements)):
+                    if self.elements[j][i] != 0:
+                        self.elements[i] += self.elements[j]
+                        step = copy.deepcopy(canvasf)
+                        step.elements[i][j] = 1
+                        steps.append(step)
+                        break
+
+            step = copy.deepcopy(canvasf)
+            step.elements[i][i] = step.elements[i][i] / self.elements[i][i]
+            steps.append(step)
+            self.elements[i] = vector.smul(self.elements[i], 1 / self.elements[i][i])
+
+            for j in range(len(self.elements)):
+                if j == i:
+                    continue
+                else:
+                    step = copy.deepcopy(canvasf)
+                    step.elements[j][i] = -self.elements[j][i]
+                    steps.append(step)
+                    self.elements[j] += vector.smul(self.elements[i], -self.elements[j][i])
+
+        inverse = copy.deepcopy(canvasf)
+        for elementary in steps:
+            inverse = elementary * inverse
+        return inverse
+
+    def vectorize(self):
+        if len(self.elements[0]) == 1:
+            v = []
+            for column in self.elements:
+                v.append(column[0])
+            return vector(v, orientation = "c")
+        elif len(self.elements) == 1:
+            return vector(self.elements[0], "r")
+        else:
+            raise RuntimeError("cannot vectorize")
+
+    def standardBasis(dim):
+        standardBasis= []
+        for row in identity(dim).elements:
+            standardBasis.append(row)
+        return standardBasis
+
+    def SVD(self):
+        k = 0
+        for row in range(len(self.elements)):
+            for column in range(len(self.elements[0])):
+                self.elements[row][column] = float(self.elements[row][column])
+        t_star_t = matrix.transpose(self) * self
+        hiddenTStarT = t_star_t.elements
+        for row in range(len(hiddenTStarT)):
+            hiddenTStarT[row] = hiddenTStarT[row].elements
+        hiddenTStarT = np.array(hiddenTStarT)
+        singularValuesSquared, hiddenV = np.linalg.eig(hiddenTStarT)
+        for s in range(len(singularValuesSquared)):
+            if singularValuesSquared[s] < 0.0001:
+                singularValuesSquared[s] = 0
+                k += 1
+        singularValues = singularValuesSquared**(1/2)
+        placement = {}
+        for i in range(len(hiddenV)):
+            if singularValues[i] in placement:
+                placement[singularValues[i]].append(hiddenV.T[i])
+            else:
+                placement[singularValues[i]] = [hiddenV.T[i]]
+        singularValues = np.sort(singularValues)[::-1]
+        hiddenVt = []
+        used = []
+        for i in singularValues:
+            used.append(0)
+        for i in range(len(singularValues)):
+            eigVector = []
+            for j in placement[singularValues[i]][used[i]]:
+                eigVector.append(j)
+            hiddenVt.append(eigVector)
+            used[i] += 1
+        V = matrix(hiddenVt)
+
+        sigma = zeros(len(self.elements), len(self.elements[0]))
+        count = 0
+        try:
+            while singularValues[count] != 0:
+                sigma.elements[count][count] = singularValues[count]
+                count += 1
+        except:
+            pass
+
+        hiddenU = []
+        for s in range(len(self.elements)):
+            if s >= len(singularValues):
+                hiddenU.append(extendBasis(hiddenU, matrix.standardBasis(len(hiddenU[0]))))
+            elif singularValues[s] <= 0.0001:
+                k += 1
+                hiddenU.append(extendBasis(hiddenU, matrix.standardBasis(len(hiddenU[0]))))
+            else:
+                hiddenU.append(vector.transpose(vector.smul(matrix.vectorize(self * vector.transpose(V.elements[s])), 1/singularValues[s])))
+        U = matrix.transpose(matrix(hiddenU))
+        return U, sigma, V, k
+
+def extendBasis(basis, candidates):
+    """takes basis and list of vectors that aren't all dependent on basis"""
+    hiddenBasis = orthonormalize(basis)
+    for e in candidates:
+        hiddenE = copy.deepcopy(e)
+        for v in range(len(basis)):
+            hiddenE = vector.transpose(hiddenE - vector.smul(e, vector.dpro(hiddenBasis[v], e)))
+        if vector.size(hiddenE) == 0:
+            pass
+        else:
+            return(vector.smul(hiddenE, 1 / vector.size(hiddenE)))
+
+def zeros(rows, columns):
+    row = []
+    final = []
+    for i in range(columns):
+        row.append(0)
+    for i in range(rows):
+        final.append(row)
+    return matrix(final)
+
+def ones(rows, columns):
+    row = []
+    final = []
+    for i in range(columns):
+        row.append(1)
+    for i in range(rows):
+        final.append(row)
+    return matrix(final)
+
+def identity(dim):
+    row = []
+    for i in range(dim - 1):
+        row.append(0)
+    row.append(1)
+    final = []
+    for i in range(dim):
+        final.append(copy.deepcopy(row))
+        row.append(row.pop(0))
+    return matrix(final[::-1])
+
+def orthonormalize(basis):
+    """takes list of vectors as input"""
+    orthoBasis = []
+    for v in range(len(basis)):
+        vec = vector.smul(basis[v], 1 / vector.size(basis[v]))
+        hiddenvec = copy.deepcopy(vec)
+        for altV in range(len(orthoBasis)):
+            hiddenvec -= vector.smul(vec, vector.dpro(orthoBasis[altV], vec))
+        orthoBasis.append(vector.smul(hiddenvec, 1 / vector.size(hiddenvec)))
+    return orthoBasis
+
+
+def imageToMatrix(image):
+    raw = mpimg.imread(image)
+    decomposed = []
+    try:
+        for m in range(len(raw[0][0])):
+            hidden = []
+            for row in range(len(raw)):
+                newRow = []
+                for column in range(len(raw[0])):
+                    newRow.append(raw[row][column][m])
+                hidden.append(newRow)
+            decomposed.append(matrix(hidden))
+        return decomposed
+    except:
+        hidden = []
+        for row in range(len(raw)):
+            newRow = []
+            for column in range(len(raw[0])):
+                newRow.append(raw[row][column])
+                hidden.append(newRow)
+            decomposed.append(matrix(hidden))
+        return decomposed
+
+def matrixToImage(colorList):
+    """takes list of matrices as input"""
+    row = []
+    imgM = []
+    for i in range(len(colorList[0].elements[0])):
+        row.append(0)
+    for i in range(len(colorList[0].elements)):
+        imgM.append(copy.deepcopy(row))
+
+    for r in range(len(imgM)):
+        for c in range(len(imgM[0])):
+            pixel = []
+            for unit in colorList:
+                pixel.append(np.uint8(round(unit.elements[r][c])))
+            imgM[r][c] = pixel
+    return np.array(imgM)
+
+def compress(image, degree):
+    imgM = imageToMatrix(image)
+    SVD = []
+    for i in range(len(imgM)):
+        info = min(len(imgM[i].elements), len(imgM[i].elements[0]))
+        print("step1")
+        X, Y, Z, k = matrix.SVD(imgM[i])
+        SVD.append([X,Y,Z])
+        c = info - 1
+        while c >= info * (1 - degree):
+            Y.elements[c][c]  = 0
+            c -= 1
+#        print("step2")
+        imgM[i] = X * Y * Z
+#        print("step3")
+    pic = matrixToImage(imgM)
+    imgplot = plt.imshow(pic)
+    plt.show()
+    return SVD
+
+def show2DRed(vector):
+    global planeExists
+    if not planeExists:
+        if not spaceExists:
+            fig = plt.figure()
+        axes2DMax = [0, 0, 0, 0]
+        plane = fig.add_subplot(121)
+    planeExists = True
+
+    plane.plot([0,vector.elements[0]],[0,vector.elements[1]],'r')
+    plane.plot([vector.elements[0]],[vector.elements[1]],'go')
+    plane.text(vector.elements[0], vector.elements[1] - 0.4, str(vector))
+
+    for dim in range(2): #adjusts axes if necessary to fit vector
+        if vector.elements[dim] < axes2DMax[2*dim]:
+            axes2DMax[2*dim] = vector.elements[dim] - 2
+        elif vector.elements[dim] > axes2DMax[2*dim + 1]:
+            axes2DMax[2*dim + 1] = vector.elements[dim] + 2
+    plane.axis(axes2DMax)
+
+def show2DBlue(vector):
+    global planeExists
+    if not planeExists:
+        if not spaceExists:
+            fig = plt.figure()
+        axes2DMax = [0, 0, 0, 0]
+        plane = fig.add_subplot(121)
+    planeExists = True
+    plane.plot([0,vector.elements[0]],[0,vector.elements[1]],'b')
+    plane.plot([vector.elements[0]],[vector.elements[1]],'go')
+    plane.text(vector.elements[0], vector.elements[1] - 0.4, str(vector))
+
+    for dim in range(2): #adjusts axes if necessary to fit vector
+        if vector.elements[dim] < axes2DMax[2*dim]:
+            axes2DMax[2*dim] = vector.elements[dim] - 2
+        elif vector.elements[dim] > axes2DMax[2*dim + 1]:
+            axes2DMax[2*dim + 1] = vector.elements[dim] + 2
+    plane.axis(axes2DMax)
+
+def show3DRed(vector):
+    global spaceExists
+    if not spaceExists:
+        if not planeExists:
+            fig = plt.figure()
+        axes3DMax = [0, 0, 0, 0, 0, 0]
+        space = fig.add_subplot(122, projection = '3d')
+    spaceExists = True
+
+    space.plot([0,vector.elements[0]],[0,vector.elements[1]],[0,vector.elements[2]],'r')
+    space.plot([vector.elements[0]],[vector.elements[1]],[vector.elements[2]],'go')
+    space.text(vector.elements[0], vector.elements[1] - 0.4,vector.elements[2], str(vector))
+
+"""    for dim in range(3): #adjusts axes if necessary to fit vector
+        if vector.elements[dim] < axes3DMax[2*dim]:
+            axes3DMax[2*dim] = vector.elements[dim] - 2
+        elif vector.elements[dim] > axes3DMax[2*dim + 1]:
+            axes3DMax[2*dim + 1] = vector.elements[dim] + 2
+    space.axis(axes3DMax)  # for some reason .axis doesn't like getting 6 inputs instead of 4. not sure how to fix that
+"""
+def show3DBlue(vector):
+    global spaceExists
+    spaceExists = True
+    if not spaceExists:
+        if not planeExists:
+            fig = plt.figure()
+        axes3DMax = [0, 0, 0, 0, 0, 0]
+        space = fig.add_subplot(122, projection = '3d')
+
+    space.plot([0,vector.elements[0]],[0,vector.elements[1]],[0,vector.elements[2]],'b')
+    space.plot([vector.elements[0]],[vector.elements[1]],[vector.elements[2]],'go')
+    space.text(vector.elements[0], vector.elements[1] - 0.4,vector.elements[2], str(vector))
